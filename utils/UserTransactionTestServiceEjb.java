@@ -19,7 +19,7 @@ import com.retek.rpm.domain.core.service.RPMSessionBeanCommand.*;
  * @ejb:bean type="Stateless" jndi-name
  *                ="com/perf/utils/UserTransactionTestService"
  *                local-jndi-name="com/perf/utils/UserTransactionTestServiceLocal"
- *                view-type="both" transaction-type="Bean"
+ *                view-type="both" transaction-type="Bean"  new change
  */
 public class UserTransactionTestServiceEjb extends RPMSessionBean  implements UserTransactionTestService {
 
