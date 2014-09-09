@@ -1,0 +1,229 @@
+package com.perf.utils;
+
+import java.util.*;
+
+import net.sf.ehcache.*;
+import net.sf.hibernate.cfg.*;
+
+/**
+ * This class is about getting information about the Hibernate Cache.
+ * Depends on ehcache.xml and hibernate.cfg.xml
+ * 
+ * @author singhez
+ * 
+ */
+
+public class HibernateEHCacheMonitor {
+	
+	static Map instanceMap = new Hashtable();
+	//The server's name
+	String server;
+	//The class constructor
+	HibernateEHCacheMonitor monitor;
+	
+	/**
+	 * Instantiates the new CacheMonitor.
+	 *
+	 */
+	public HibernateEHCacheMonitor() {
+		try {
+			//builds the configuration from hibernate.cfg.xml and ehcache.xml
+			Configuration config = new Configuration().configure();
+			//get the connection to the database
+			monitor = HibernateEHCacheMonitor.getInstance(config.getProperty("hibernate.connection.url"));
+		} catch (Exception ex) {
+			System.out.println("Exception raised while building session factory");
+			ex.printStackTrace(System.out);
+		}
+	}
+	
+	/**
+	 * Instantiates a new "empty" CacheMonitor with only the server
+	 * @param key - The server
+	 */
+	private HibernateEHCacheMonitor(String key) {
+		server = key;
+	}
+	
+	/**
+	 * Makes a call to hibernate.cfg.xml to get the database (jdbc) connection. 
+	 * Return an instance of this class itself.
+	 * @param key - The key to be searched for (jdbc connection)
+	 * @return HibernateEHCacheMonitor
+	 */
+	static public HibernateEHCacheMonitor getInstance(String key) {
+		if (instanceMap.get(key) == null) {
+			instanceMap.put(key, new HibernateEHCacheMonitor(key));
+		}
+		
+		return ((HibernateEHCacheMonitor) instanceMap.get(key));
+	}
+
+	/**
+	 * 
+	 * @return The Servername
+	 */
+	public String getServerName() {
+		return server;
+	}
+	
+	/**
+	 * 
+	 * @return The cache type used
+	 */
+	public  String getCacheType() {
+		return "net.sf.hibernate.ehcache";
+	}
+	
+	/**
+	 * 
+	 * @return The date and time the monitor has been called
+	 */
+	public String getServerTime() {
+		return(new Date().toString());
+	}
+	
+	/**
+	 * Sets up the headers for the class.
+	 * @return A list of the headers
+	 */
+	List getHeaders() {
+		List headers = new ArrayList();
+		
+		headers.add("Name");
+		headers.add("Class");
+		headers.add("Max Elements in Mem");
+		headers.add("Idle Time (seconds)");
+		headers.add("Time to Live (seconds)");
+		headers.add("Eternal");
+		headers.add("Disk Overflow");
+		headers.add("Status");
+		headers.add("Object Size (bytes)");
+		headers.add("Hits-Memory" );
+		headers.add("Hits-Disk");
+		headers.add("Misses-Expired");
+		headers.add("Misses-Not Found");
+		headers.add("Store Size (count)-Memory");
+		headers.add("Store Size (count)-Disk");
+
+		return (headers);
+	}
+	
+	public int getHitCount(String cacheName) throws CacheException  {
+	    CacheManager cacheMgr = CacheManager.getInstance();
+		
+	    Cache cache = cacheMgr.getCache(cacheName);
+	    if (cache == null)  {
+	        throw new IllegalArgumentException("Cache not found: " + cacheName);
+	    }
+	    
+	    return cache.getDiskStoreHitCount() + cache.getMemoryStoreHitCount();
+	}
+	
+	/**
+	 * Returns a list of the caching information for each class.
+	 * @return List of caches
+	 */
+	public List getCachingInformation() {
+    	try {
+    		CacheManager cacheMgr = CacheManager.getInstance();
+    		//get all the caches specified in ehcache.xml
+			String[] caches = cacheMgr.getCacheNames();
+			//create the list to hold all the caches information
+			List listOfRegions = new ArrayList();
+			
+			for (int i = 0; i < caches.length; i++) {
+				//get the ith cache
+				Cache cacheRegion = cacheMgr.getCache(caches[i]);
+				//instantiates the CacheParams (Cache Parameters/Variables)
+				CacheParams cacheParam = new CacheParams();
+
+				//sets up the cacheParam
+				cacheParam.name 		= cacheRegion.getName();
+				cacheParam.className = cacheRegion.getClass().getName();
+				
+				cacheParam.maxElementsInMemory =cacheRegion.getMaxElementsInMemory();
+
+				cacheParam.overFlowToDisk = cacheRegion.isOverflowToDisk();
+
+				cacheParam.status = cacheRegion.getStatus();
+				
+				cacheParam.eternal = cacheRegion.isEternal();
+				
+				if (cacheRegion.isEternal()) {
+					cacheParam.idleTime = "ETERNAL";
+					cacheParam.timeToLive = "ETERNAL";
+				} else {
+					cacheParam.idleTime = new Long(cacheRegion.getTimeToIdleSeconds()).toString();
+					cacheParam.timeToLive = new Long(cacheRegion.getTimeToLiveSeconds()).toString();
+				}
+				
+				cacheParam.memoryHits = cacheRegion.getMemoryStoreHitCount();
+				cacheParam.diskHits = cacheRegion.getDiskStoreHitCount();
+				
+				cacheParam.expiredMisses = cacheRegion.getMissCountExpired();
+				cacheParam.notFoundMisses = cacheRegion.getMissCountNotFound();
+
+				cacheParam.objectSize = cacheRegion.getSize();
+				
+				cacheParam.memorySizeCount = cacheRegion.getMemoryStoreSize();
+				cacheParam.diskSizeCount = cacheRegion.getDiskStoreSize();
+
+				//add to the list
+				listOfRegions.add(cacheParam);
+			}
+			//return the list
+			return(listOfRegions);
+		} catch (Exception ex) {
+			System.out.println("Exception thrown while getting information about cache region");
+			ex.printStackTrace(System.out);
+			
+			return null;
+		}
+    }
+	
+	/**
+	 * Converts all the caches to one single String.
+	 */
+	public String toString() {
+		StringBuffer strBuffer = new StringBuffer();
+		
+		//outputs the server information, delimited by ";"
+		strBuffer.append(server + ";" + getCacheType() + ";" + getServerTime() + "\n");
+		
+		//not needed, for now, to display the headers. Might need to change later...
+//		for (Iterator iter = this.getHeaders().iterator(); iter.hasNext();) {
+//			strBuffer.append((String) iter.next() + ",");
+//		}
+//		strBuffer.append("\n");
+		
+		//outputs the cache information, each cache seperated by a line feed
+		for (Iterator iter = this.getCachingInformation().iterator(); iter.hasNext();) {
+			CacheParams cacheParam = (CacheParams) iter.next();
+			strBuffer.append(cacheParam.toString() + "\n");
+		}
+
+		return strBuffer.toString();
+	}
+	
+	/**
+	 * Return a string of all the caching information. 
+	 * @return String
+	 */
+	public String results() {
+		return monitor.toString();
+	}
+	
+	public static void main(String[] argv) {
+		try {
+			Configuration config = new Configuration().configure();
+			HibernateEHCacheMonitor monitor = HibernateEHCacheMonitor.getInstance(config.getProperty("hibernate.connection.url"));
+			System.out.println(monitor.toString());
+			System.out.println("done");
+		} catch (Exception ex) {
+			System.out.println("Exception raised while building session factory");
+			ex.printStackTrace(System.out);
+		}
+		
+	}
+}
