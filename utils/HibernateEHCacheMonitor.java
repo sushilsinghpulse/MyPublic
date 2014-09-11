@@ -10,13 +10,14 @@ import net.sf.hibernate.cfg.*;
  * Depends on ehcache.xml and hibernate.cfg.xml
  * 
  * @author singhez
- * 
+ * changed in branch1 
  */
 
 public class HibernateEHCacheMonitor {
 	
-	static Map instanceMap = new Hashtable();
-	//The server's name
+	static Map instanceMap = new Hashtable();sd
+	\asda
+	/sdasdasd/The server's name
 	String server;
 	//The class constructor
 	HibernateEHCacheMonitor monitor;
